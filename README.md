@@ -1,2 +1,2 @@
 # blog.ikhlasrealty
-Monthly newsletter for Iklhas Hussain, Realtor
+Monthly newsletter for Ikhlas Hussain, Realtor
