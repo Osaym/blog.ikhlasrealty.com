@@ -367,6 +367,7 @@ def process_saved_file(html_file_path, process_articles=True):
     article_links = set()
     article_titles = {}
     daily_news_archive_url = None
+    graph_image_url = None
     
     # Copy images and update paths using BeautifulSoup
     if files_folder.exists() and files_folder.is_dir():
@@ -400,7 +401,13 @@ def process_saved_file(html_file_path, process_articles=True):
                     tag['src'] = f"/images/{filename}"
                 else:
                     tag['src'] = f"/images/monthly/{folder_name}/{filename}"
-    
+
+    # Capture externally-referenced dynamic graph image URLs for manual download.
+    for img_tag in soup.find_all('img'):
+        src = img_tag.get('src', '')
+        if 'graph/graph.php' in src or 'newgrap.php' in src:
+            graph_image_url = src  # Will be opened in browser for manual save
+
     # Extract article links to download manually
     for link in soup.find_all('a', href=True):
         href = link['href']
@@ -527,6 +534,7 @@ def process_saved_file(html_file_path, process_articles=True):
         'article_links': article_links,
         'article_titles': article_titles,
         'daily_news_archive_url': daily_news_archive_url,
+        'graph_image_url': graph_image_url,
         'content_body': content_body,
         'full_html': full_html
     }
@@ -599,6 +607,7 @@ def main():
     # Step 3: Handle article downloads
     article_links = newsletter_data.get('article_links', set())
     daily_news_archive_url = newsletter_data.get('daily_news_archive_url')
+    graph_image_url = newsletter_data.get('graph_image_url')
 
     download_targets = sorted(article_links)
     if daily_news_archive_url and daily_news_archive_url not in download_targets:
@@ -618,7 +627,7 @@ def main():
         # Save article links
         links_file = ARTICLE_DOWNLOAD_DIR / "article_links.txt"
         links_file.write_text('\n'.join(download_targets), encoding='utf-8')
-        
+
         print(f"\n📥 Opening {len(download_targets)} links in your browser...\n")
         
         # Open each article in browser
@@ -631,12 +640,17 @@ def main():
         print(f"\n✓ All links opened in browser!")
         print(f"  Article links also saved to: {ARTICLE_DOWNLOAD_DIR.name}/article_links.txt\n")
         print("Instructions:")
-        print(f"  1. For each browser tab that opened:")
+        print(f"  1. For each article/daily-news browser tab:")
         print("     - File → Save As → 'Webpage, Complete'")
         print(f"     - Save to '{ARTICLE_DOWNLOAD_DIR.name}/' folder")
         print("     - Rename to something unique (article1.html, article2.html, etc.)")
         print("       Chrome saves them all as '606' - you must rename them")
-        print(f"  2. Save all {len(download_targets)} pages\n")
+        if graph_image_url:
+            print(f"  2. For the market graph (chart) on the NEWSLETTER tab still open in your browser:")
+            print(f"     - Go back to the realtytimes.com/cm/tonycamarra tab")
+            print(f"     - Right-click the chart image → Save Image As...")
+            print(f"     - Save as 'market-graph.png' in '{ARTICLE_DOWNLOAD_DIR.name}/'")
+        print(f"  {'3' if graph_image_url else '2'}. Save all pages/images\n")
         
         input("Press RETURN when all articles are downloaded and renamed: ")
         
@@ -652,6 +666,18 @@ def main():
         article_map = {}  # Maps article_id to local path
         daily_news_local_path = None
         used_slugs = set()
+
+        # Pick up manually saved graph image (market-graph.*)
+        folder_name = newsletter_data['folder_name']
+        monthly_images_folder = MONTHLY_IMAGES_DIR / folder_name
+        monthly_images_folder.mkdir(parents=True, exist_ok=True)
+        graph_local_url = None
+        for graph_file in ARTICLE_DOWNLOAD_DIR.glob('market-graph.*'):
+            dest = monthly_images_folder / graph_file.name
+            shutil.copy2(graph_file, dest)
+            graph_local_url = f'/images/monthly/{folder_name}/{graph_file.name}'
+            print(f'  ✓ Saved graph image -> images/monthly/{folder_name}/{graph_file.name}')
+
         article_files = list(ARTICLE_DOWNLOAD_DIR.glob("*.html"))
         
         if article_files:
@@ -734,6 +760,34 @@ def main():
                         latest_daily_url,
                         full_html
                     )
+
+                # Localize graph image in newsletter and all article files.
+                if graph_local_url:
+                    full_html = re.sub(
+                        r'https?://realtytimes\.com/graph/[^"\']+',
+                        graph_local_url,
+                        full_html
+                    )
+                    full_html = re.sub(
+                        r'/images/monthly/\d{4}_\d+/(?:newgrap|graph)\.php',
+                        graph_local_url,
+                        full_html
+                    )
+                    for article_file in articles_folder.glob('*.html'):
+                        art = article_file.read_text(encoding='utf-8')
+                        patched = re.sub(
+                            r'https?://realtytimes\.com/graph/[^"\']+',
+                            graph_local_url,
+                            art
+                        )
+                        patched = re.sub(
+                            r'/images/monthly/\d{4}_\d+/(?:newgrap|graph)\.php',
+                            graph_local_url,
+                            patched
+                        )
+                        if patched != art:
+                            article_file.write_text(patched, encoding='utf-8')
+                    print(f'  \u2713 Localized graph image in newsletter and articles')
 
                 # Localize links inside generated article pages (e.g., Daily News story links).
                 localize_article_cross_links(
