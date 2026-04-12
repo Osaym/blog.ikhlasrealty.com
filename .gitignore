@@ -1,1 +1,17 @@
+# macOS
 .DS_Store
+
+# Python virtual environments
+/.venv
+automation/.venv/
+automation/venv/
+
+# Python cache
+automation/__pycache__/
+automation/*.pyc
+*.pyc
+__pycache__/
+
+# Backup files
+*~
+*.bak
