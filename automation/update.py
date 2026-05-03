@@ -572,7 +572,7 @@ def main():
     print("Step 2: Processing newsletter...")
     print("=" * 70 + "\n")
     
-    html_files = list(NEWSLETTER_DOWNLOAD_DIR.glob("*.html"))
+    html_files = list(NEWSLETTER_DOWNLOAD_DIR.glob("*.html")) + list(NEWSLETTER_DOWNLOAD_DIR.glob("*.htm"))
     
     if not html_files:
         print("\n" + "=" * 70)
@@ -678,7 +678,7 @@ def main():
             graph_local_url = f'/images/monthly/{folder_name}/{graph_file.name}'
             print(f'  ✓ Saved graph image -> images/monthly/{folder_name}/{graph_file.name}')
 
-        article_files = list(ARTICLE_DOWNLOAD_DIR.glob("*.html"))
+        article_files = list(ARTICLE_DOWNLOAD_DIR.glob("*.html")) + list(ARTICLE_DOWNLOAD_DIR.glob("*.htm"))
         
         if article_files:
             for article_file in article_files:
